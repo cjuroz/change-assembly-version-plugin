@@ -21,6 +21,7 @@ import jenkins.tasks.SimpleBuildStep;
 import org.apache.commons.lang.StringUtils;
 
 import org.jenkinsci.Symbol;
+import org.jenkinsci.plugins.tokenmacro.TokenMacro;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -212,21 +213,21 @@ public class ChangeAssemblyVersion extends Builder implements SimpleBuildStep {
                 envVars.overrideAll(((AbstractBuild<?, ?>) run).getBuildVariables());
             }
 
-            String version = new AssemblyVersion(this.versionPattern, envVars).getVersion();
+            String version = TokenMacro.expandAll(run, workspace, listener, this.versionPattern);
             if (versionPattern == null || StringUtils.isEmpty(versionPattern))
             {
                 listener.getLogger().println("Please provide a valid version pattern.");
                 throw new AbortException("Please provide a valid version pattern.");
             }
             
-            // Expand env variables
-            String assemblyTitle = envVars.expand(this.assemblyTitle);
-            String assemblyDescription = envVars.expand(this.assemblyDescription);
-            String assemblyCompany = envVars.expand(this.assemblyCompany);
-            String assemblyProduct = envVars.expand(this.assemblyProduct);
-            String assemblyCopyright = envVars.expand(this.assemblyCopyright);
-            String assemblyTrademark = envVars.expand(this.assemblyTrademark);
-            String assemblyCulture = envVars.expand(this.assemblyCulture);
+            // Expand env variables and token macros
+            String assemblyTitle = TokenMacro.expandAll(run, workspace, listener, this.assemblyTitle);
+            String assemblyDescription = TokenMacro.expandAll(run, workspace, listener, this.assemblyDescription);
+            String assemblyCompany = TokenMacro.expandAll(run, workspace, listener, this.assemblyCompany);
+            String assemblyProduct = TokenMacro.expandAll(run, workspace, listener, this.assemblyProduct);
+            String assemblyCopyright = TokenMacro.expandAll(run, workspace, listener, this.assemblyCopyright);
+            String assemblyTrademark = TokenMacro.expandAll(run, workspace, listener, this.assemblyTrademark);
+            String assemblyCulture = TokenMacro.expandAll(run, workspace, listener, this.assemblyCulture);
             
             
             // Log new expanded values
@@ -242,9 +243,9 @@ public class ChangeAssemblyVersion extends Builder implements SimpleBuildStep {
             
             for (FilePath f : workspace.list(assemblyGlob))
             {
-                // Update the AssemblyVerion and AssemblyFileVersion
-                new ChangeTools(f, this.regexPattern, this.replacementPattern).Replace(version, listener);
-                
+                // Expand env variables and token macros for AssemblyVerion and AssemblyFileVersion and update
+                new ChangeTools(f, TokenMacro.expandAll(run, f, listener, this.regexPattern), TokenMacro.expandAll(run, f, listener, this.replacementPattern)).Replace(version, listener);
+
                 // Set new things, empty string being ok for them.
                 // TODO: Would we need a regex for these or just blast as we are doing now?
                 new ChangeTools(f, "AssemblyTitle[(]\".*\"[)]", "AssemblyTitle(\"%s\")").Replace(assemblyTitle, listener);            
